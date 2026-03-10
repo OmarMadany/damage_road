@@ -3,7 +3,7 @@ from ultralytics import YOLO
 import shutil
 
 app = FastAPI()
-model = YOLO("lib/core/ai_server/best.pt")
+model = YOLO("best.pt")
 
 @app.post("/analyze")
 async def analyze(file: UploadFile = File(...)):
@@ -16,4 +16,5 @@ async def analyze(file: UploadFile = File(...)):
     
     # تحويل النتائج لقائمة dict
     output = results.pandas().xyxy[0].to_dict(orient="records")
+
     return {"result": output}
