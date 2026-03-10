@@ -1,20 +1,26 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI
+from pydantic import BaseModel
 from ultralytics import YOLO
-import shutil
+import requests
+import numpy as np
+import cv2
 
 app = FastAPI()
 model = YOLO("best.pt")
 
-@app.post("/analyze")
-async def analyze(file: UploadFile = File(...)):
-    # حفظ الصورة مؤقتًا
-    with open("temp.jpg", "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
-    
-    # تحليل الصورة
-    results = model("temp.jpg")
-    
-    # تحويل النتائج لقائمة dict
-    output = results.pandas().xyxy[0].to_dict(orient="records")
+class ImageData(BaseModel):
+    user_id: str
+    image_url: str
 
-    return {"result": output}
+@app.post("/analyze")
+async def analyze(data: ImageData):
+    # تحميل الصورة من Cloudinary
+    resp = requests.get(data.image_url)
+    arr = np.asarray(bytearray(resp.content), dtype=np.uint8)
+    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+
+    # تحليل الصورة
+    results = model(img)
+    output = results.pandas().xyxy[0].to_dict(orient="records")
+    
+    return {"user_id": data.user_id, "result": output}
