@@ -2,11 +2,9 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from ultralytics import YOLO
 import requests
-import numpy as np
-import cv2
 
 app = FastAPI()
-model = YOLO("best.pt")
+model = YOLO("best.pt")  # تأكد المسار صح
 
 class ImageData(BaseModel):
     user_id: str
@@ -14,13 +12,22 @@ class ImageData(BaseModel):
 
 @app.post("/analyze")
 async def analyze(data: ImageData):
-    # تحميل الصورة من Cloudinary
+    # تحميل الصورة من الرابط
     resp = requests.get(data.image_url)
-    arr = np.asarray(bytearray(resp.content), dtype=np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    img_path = "temp.jpg"
+    with open(img_path, "wb") as f:
+        f.write(resp.content)
 
-    # تحليل الصورة
-    results = model(img)
-    output = results.pandas().xyxy[0].to_dict(orient="records")
+    # تحليل الصورة باستخدام YOLO
+    results = model(img_path)
     
-    return {"user_id": data.user_id, "result": output}
+    # تحويل النتائج لقائمة بسيطة للـ JSON
+    detections = []
+    for result in results:
+        for box in result.boxes.xyxy:
+            detections.append(box.tolist())
+    
+    return {
+        "user_id": data.user_id,
+        "detections": detections
+    }
